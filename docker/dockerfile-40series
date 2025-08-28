@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.8.1-devel-ubuntu20.04
+FROM nvidia/cuda:12.1.0-devel-ubuntu20.04
 
 ENV TZ=US/Pacific
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -33,13 +33,13 @@ ENV PATH="/opt/conda/bin:${PATH}"
 RUN conda tos accept
 
 RUN conda update -n base -c defaults conda -y &&\
-    conda create -n my python=3.9
+    conda create -n my python=3.8
 
 
 ENV PATH $PATH:/opt/conda/envs/my/bin
 
 RUN conda run -n my /bin/bash -c "\
-    pip install torchvision==0.22.1+cu128 torchaudio==2.7.1 torch==2.7.1+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
+    pip install torchvision==0.16.0+cu121 torchaudio==2.1.0 torch==2.1.0+cu121 --index-url https://download.pytorch.org/whl/cu121 && \
     pip install 'git+https://github.com/facebookresearch/pytorch3d.git@stable' && \
 	pip install scipy joblib scikit-learn ruamel.yaml trimesh pyyaml opencv-python imageio open3d transformations warp-lang einops kornia pyrender"
 

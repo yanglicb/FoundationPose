@@ -38,7 +38,9 @@ if __name__=='__main__':
   scorer = ScorePredictor()
   refiner = PoseRefinePredictor()
   glctx = dr.RasterizeCudaContext()
-  est = FoundationPose(model_pts=mesh.vertices, model_normals=mesh.vertex_normals, mesh=mesh, scorer=scorer, refiner=refiner, debug_dir=debug_dir, debug=debug, glctx=glctx)
+  est = FoundationPose(model_pts=mesh.vertices, model_normals=mesh.vertex_normals, 
+                       mesh=mesh, scorer=scorer, refiner=refiner, debug_dir=debug_dir, 
+                       debug=debug, glctx=glctx)
   logging.info("estimator initialization done")
 
   reader = YcbineoatReader(video_dir=args.test_scene_dir, shorter_side=None, zfar=np.inf)
@@ -68,7 +70,7 @@ if __name__=='__main__':
     if debug>=1:
       center_pose = pose@np.linalg.inv(to_origin)
       vis = draw_posed_3d_box(reader.K, img=color, ob_in_cam=center_pose, bbox=bbox)
-      vis = draw_xyz_axis(color, ob_in_cam=center_pose, scale=0.1, K=reader.K, thickness=3, transparency=0, is_input_rgb=True)
+      vis = draw_xyz_axis(color, ob_in_cam=center_pose, scale=0.05, K=reader.K, thickness=3, transparency=0, is_input_rgb=True)
       cv2.imshow('1', vis[...,::-1])
       cv2.waitKey(1)
 

@@ -11,6 +11,7 @@ BundleTrack/build
 .Python
 foundationpose/
 build/
+build-old/
 develop-eggs/
 *.zip
 demo_data/*
