@@ -33,7 +33,7 @@ ENV PATH="/opt/conda/bin:${PATH}"
 RUN conda tos accept
 
 RUN conda update -n base -c defaults conda -y &&\
-    conda create -n my python=3.9
+    conda create -n my python=3.10
 
 
 ENV PATH $PATH:/opt/conda/envs/my/bin
