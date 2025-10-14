@@ -24,7 +24,8 @@ class FoundationPose:
     os.makedirs(debug_dir, exist_ok=True)
 
     self.reset_object(model_pts, model_normals, symmetry_tfs=symmetry_tfs, mesh=mesh)
-    self.make_rotation_grid(min_n_views=40, inplane_step=60)
+    # Default: constrained X-axis viewing with ±60° deviation for optimized registration
+    self.make_rotation_grid(min_n_views=40, inplane_step=60, constrained_axis='x', max_deviation_degrees=60)
 
     self.glctx = glctx
 
@@ -103,9 +104,44 @@ class FoundationPose:
 
 
 
-  def make_rotation_grid(self, min_n_views=40, inplane_step=60):
+  def make_rotation_grid(self, min_n_views=40, inplane_step=60, constrained_axis=None, max_deviation_degrees=None):
+    """
+    Generate rotation grid for pose hypotheses.
+    
+    Args:
+        min_n_views: Minimum number of viewpoints to sample
+        inplane_step: Step size for in-plane rotations (degrees)
+        constrained_axis: If specified ('x', 'y', or 'z'), constrains viewpoints around this axis
+        max_deviation_degrees: Maximum deviation from constrained_axis (degrees)
+    """
     cam_in_obs = sample_views_icosphere(n_views=min_n_views)
-    logging.info(f'cam_in_obs:{cam_in_obs.shape}')
+    logging.info(f'cam_in_obs (before filtering):{cam_in_obs.shape}')
+    
+    # Filter viewpoints if constrained axis is specified
+    if constrained_axis is not None and max_deviation_degrees is not None:
+      axis_map = {'x': np.array([1, 0, 0]), 'y': np.array([0, 1, 0]), 'z': np.array([0, 0, 1])}
+      if constrained_axis.lower() not in axis_map:
+        logging.warning(f"Invalid constrained_axis '{constrained_axis}', using all viewpoints")
+      else:
+        target_axis = axis_map[constrained_axis.lower()]
+        max_deviation_rad = np.deg2rad(max_deviation_degrees)
+        
+        # Extract viewing directions (camera looks at object from these positions)
+        # In cam_in_obs, the camera position is at [:,:3,3] and it looks toward origin
+        camera_positions = cam_in_obs[:, :3, 3]  # (N, 3)
+        viewing_directions = -camera_positions / np.linalg.norm(camera_positions, axis=1, keepdims=True)
+        
+        # Calculate angle between viewing direction and target axis
+        dot_products = np.dot(viewing_directions, target_axis)
+        angles = np.arccos(np.clip(dot_products, -1.0, 1.0))
+        
+        # Filter viewpoints within max_deviation
+        valid_indices = angles <= max_deviation_rad
+        cam_in_obs = cam_in_obs[valid_indices]
+        
+        logging.info(f'cam_in_obs (after {constrained_axis}-axis ±{max_deviation_degrees}° filtering):{cam_in_obs.shape}')
+        logging.info(f'Kept {len(cam_in_obs)}/{len(valid_indices)} viewpoints')
+    
     rot_grid = []
     for i in range(len(cam_in_obs)):
       for inplane_rot in np.deg2rad(np.arange(0, 360, inplane_step)):
