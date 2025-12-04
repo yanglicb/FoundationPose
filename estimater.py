@@ -86,6 +86,62 @@ class FoundationPose:
     return tf_to_center
 
 
+  def _create_depth_colormap(self, depth):
+    """Create a colorized depth visualization using JET colormap.
+    
+    Args:
+        depth: Depth array in meters (float32) or millimeters (uint16)
+        
+    Returns:
+        Colorized depth image (BGR format for OpenCV)
+    """
+    import numpy as np
+    
+    # Convert to numpy if tensor
+    if hasattr(depth, 'cpu'):
+      depth_np = depth.cpu().numpy() if hasattr(depth, 'numpy') else np.asarray(depth)
+    else:
+      depth_np = np.asarray(depth)
+    
+    # Handle different depth formats
+    if depth_np.dtype == np.float32 or depth_np.dtype == np.float64:
+      depth_m = depth_np.copy()
+    else:
+      depth_m = depth_np.astype(np.float32) / 1000.0  # mm to m
+    
+    # Filter valid depth values
+    valid_mask = depth_m > 0.001
+    
+    if not valid_mask.any():
+      return np.zeros((depth_m.shape[0], depth_m.shape[1], 3), dtype=np.uint8)
+    
+    # Get min/max of valid depths
+    valid_depths = depth_m[valid_mask]
+    depth_min = valid_depths.min()
+    depth_max = valid_depths.max()
+    
+    # Normalize to 0-255
+    if depth_max - depth_min < 1e-6:
+      depth_normalized = np.zeros_like(depth_m, dtype=np.uint8)
+    else:
+      depth_normalized = ((depth_m - depth_min) / (depth_max - depth_min) * 255).astype(np.uint8)
+    
+    # Set invalid depths to 0
+    depth_normalized[~valid_mask] = 0
+    
+    # Apply JET colormap
+    depth_colorized = cv2.applyColorMap(depth_normalized, cv2.COLORMAP_JET)
+    
+    # Make invalid pixels black
+    depth_colorized[~valid_mask] = [0, 0, 0]
+    
+    # Add depth range annotation
+    text = f"Depth: {depth_min:.3f}m - {depth_max:.3f}m"
+    cv2.putText(depth_colorized, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    
+    return depth_colorized
+
+
   def to_device(self, s='cuda:0'):
     for k in self.__dict__:
       self.__dict__[k] = self.__dict__[k]
@@ -229,6 +285,11 @@ class FoundationPose:
     if self.debug>=2:
       imageio.imwrite(f'{self.debug_dir}/color.png', rgb)
       cv2.imwrite(f'{self.debug_dir}/depth.png', (depth*1000).astype(np.uint16))
+      
+      # Save colorized depth visualization
+      depth_vis = self._create_depth_colormap(depth)
+      cv2.imwrite(f'{self.debug_dir}/depth_vis.png', depth_vis)
+      
       valid = xyz_map[...,2]>=0.001
       pcd = toOpen3dCloud(xyz_map[valid], rgb[valid])
       o3d.io.write_point_cloud(f'{self.debug_dir}/scene_complete.ply',pcd)
